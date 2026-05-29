@@ -124,8 +124,10 @@ def fetch_stock_info(symbol):
 def fetch_top_gainers():
     data = api_post("topGainers")
     if not data: return []
-    if isinstance(data, list): return data[:10]
-    return data.get("reqTopGainers", [])[:10]
+    items = data if isinstance(data, list) else data.get("reqTopGainers", data.get("topGainers", []))
+    if items and len(items) > 0:
+        print(f"   ℹ️  Gainers API fields: {list(items[0].keys())}")
+    return items[:10]
 
 def fetch_top_losers():
     data = api_post("topLooses")
@@ -357,21 +359,21 @@ def write_gainers_losers_sheet(wb, gainers, losers, active):
 
         if i < len(gainers):
             g = gainers[i]
-            pct = g.get("changePercentage", g.get("percentageChange", 0)) or 0
-            pct_v = pct/100 if abs(pct) > 1 else pct
-            dcell(ws, ri, 2, g.get("symbol",""),         bg=bg_g, bold=True, fg=GREEN_TXT)
-            dcell(ws, ri, 3, g.get("name",""),           bg=bg_g, align='left')
-            dcell(ws, ri, 4, g.get("lastTradedPrice",0), bg=bg_g, fmt='#,##0.00')
-            dcell(ws, ri, 5, pct_v,                      bg=bg_g, fg=GREEN_TXT, fmt='0.00%', bold=True)
+            pct_v = (g.get("changePercentage") or 0) / 100
+            price = g.get("price") or 0
+            dcell(ws, ri, 2, g.get("symbol",""),   bg=bg_g, bold=True, fg=GREEN_TXT)
+            dcell(ws, ri, 3, g.get("symbol",""),   bg=bg_g, align='left', fg=GREEN_TXT)
+            dcell(ws, ri, 4, price,                bg=bg_g, fmt='#,##0.00')
+            dcell(ws, ri, 5, pct_v,                bg=bg_g, fg=GREEN_TXT, fmt='0.00%', bold=True)
 
         if i < len(losers):
             l = losers[i]
-            pct = l.get("changePercentage", l.get("percentageChange", 0)) or 0
-            pct_v = pct/100 if abs(pct) > 1 else pct
-            dcell(ws, ri, 7,  l.get("symbol",""),         bg=bg_l, bold=True, fg=RED_TXT)
-            dcell(ws, ri, 8,  l.get("name",""),           bg=bg_l, align='left')
-            dcell(ws, ri, 9,  l.get("lastTradedPrice",0), bg=bg_l, fmt='#,##0.00')
-            dcell(ws, ri, 10, pct_v,                      bg=bg_l, fg=RED_TXT, fmt='0.00%', bold=True)
+            pct_v = (l.get("changePercentage") or 0) / 100
+            price = l.get("price") or 0
+            dcell(ws, ri, 7,  l.get("symbol",""),  bg=bg_l, bold=True, fg=RED_TXT)
+            dcell(ws, ri, 8,  l.get("symbol",""),  bg=bg_l, align='left', fg=RED_TXT)
+            dcell(ws, ri, 9,  price,               bg=bg_l, fmt='#,##0.00')
+            dcell(ws, ri, 10, pct_v,               bg=bg_l, fg=RED_TXT, fmt='0.00%', bold=True)
 
     if active:
         start = max_rows + 7
@@ -382,17 +384,20 @@ def write_gainers_losers_sheet(wb, gainers, losers, active):
         a.alignment = Alignment(horizontal='center', vertical='center')
         ws.row_dimensions[start].height = 26
 
-        for ci, h in enumerate(["Symbol","Company","Price (LKR)","Volume"], 2):
+        for ci, h in enumerate(["Symbol","Symbol","Turnover (LKR)","Share Volume"], 2):
             hcell(ws, start+1, ci, h, bg=MID_BLUE)
 
         for i, s in enumerate(active):
             ri = start + 2 + i
             ws.row_dimensions[ri].height = 18
             bg = WHITE if i % 2 == 0 else LIGHT_GRAY
-            dcell(ws, ri, 2, s.get("symbol",""),         bg=bg, bold=True, fg=DARK_BLUE)
-            dcell(ws, ri, 3, s.get("name",""),           bg=bg, align='left')
-            dcell(ws, ri, 4, s.get("lastTradedPrice",0), bg=bg, fmt='#,##0.00')
-            dcell(ws, ri, 5, s.get("volume",0),          bg=bg, fmt='#,##0')
+            # mostActiveTrades confirmed fields: symbol, shareVolume, tradeVolume, turnover
+            vol      = s.get("shareVolume") or s.get("tradeVolume") or 0
+            turnover = s.get("turnover") or 0
+            dcell(ws, ri, 2, s.get("symbol",""), bg=bg, bold=True, fg=DARK_BLUE)
+            dcell(ws, ri, 3, s.get("symbol",""), bg=bg, align='left', fg=DARK_GRAY)
+            dcell(ws, ri, 4, turnover,           bg=bg, fmt='#,##0.00')
+            dcell(ws, ri, 5, vol,                bg=bg, fmt='#,##0')
 
 # ─────────────────────────────────────────────────────────────────────
 # MAIN
